@@ -1,47 +1,36 @@
 import streamlit as st
 import pandas as pd
-import sqlite3
 from datetime import datetime
-import os
 import re
+from pymongo import MongoClient
 
-# Define the path to your OneDrive-synced folder
-ONEDRIVE_PATH = '/Users/ybkmykeyz/Library/CloudStorage/OneDrive-IntegratedSupplyNetwork/PCS/Python Files/'
-DB_FILE = os.path.join(ONEDRIVE_PATH, 'team_log.db')
-
-# Ensure the database and table exist
-conn = sqlite3.connect(DB_FILE)
-cursor = conn.cursor()
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS changes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        item_number TEXT,
-        date TEXT,
-        entered_by TEXT,
-        price_change TEXT,
-        description_update TEXT,
-        discontinued TEXT,
-        quantity_adjustment TEXT,
-        category_change TEXT,
-        notes TEXT
-    )
-''')
-conn.commit()
+# MongoDB Atlas connection string
+client = MongoClient("mongodb+srv://test:test@cluster0.qdyup.mongodb.net/")
+db = client['item_changes']  # 'item_changes' is the database name
+changes_collection = db.changes  # 'changes' is the collection name
 
 def log_changes_to_db(item_numbers, changes, name, change_options, notes):
     date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     for item in item_numbers:
-        row = [item, date, name] + ['Yes' if option in changes else 'No' for option in change_options] + [notes]
-        cursor.execute('''
-            INSERT INTO changes (item_number, date, entered_by, price_change, description_update,
-                discontinued, quantity_adjustment, category_change, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', row)
-    conn.commit()
+        document = {
+            "item_number": item,
+            "date": date,
+            "entered_by": name,
+            "price_change": 'Yes' if "Price Change" in changes else 'No',
+            "description_update": 'Yes' if "Description Update" in changes else 'No',
+            "discontinued": 'Yes' if "Discontinued" in changes else 'No',
+            "quantity_adjustment": 'Yes' if "Quantity Adjustment" in changes else 'No',
+            "category_change": 'Yes' if "Category Change" in changes else 'No',
+            "notes": notes
+        }
+        changes_collection.insert_one(document)
 
-# Streamlit app layout using columns to make fields wider
+def fetch_changes():
+    return pd.DataFrame(list(changes_collection.find({}, {'_id': 0})))  # Excludes the MongoDB '_id' from the DataFrame
+
+# Streamlit app layout
 st.title("Item Change Tracker")
-cols1 = st.columns((1,1))  # Adjust the tuple values to change the relative width of columns
+cols1 = st.columns((1,1))
 item_numbers_input = cols1[0].text_area("Enter Item Numbers (space, comma, or newline separated)", height=300)
 names = ["John Doe", "Jane Smith", "Mark Johnson", "Emily Davis"]
 name = cols1[1].selectbox("Select Your Name", names)
@@ -61,8 +50,7 @@ if st.button("Log Changes"):
             try:
                 log_changes_to_db(item_numbers, changes, name, change_options, notes)
                 st.success("Changes have been logged successfully.")
-                # Load and display the updated log
-                df = pd.read_sql_query("SELECT * FROM changes", conn)
+                df = fetch_changes()
                 st.subheader("Updated Change Log")
                 st.dataframe(df)
             except Exception as e:
