@@ -4,7 +4,7 @@ from datetime import datetime
 import re
 from pymongo import MongoClient
 # Automatically open in wide mode
-st.set_page_config(layout="wide")
+
 
 # MongoDB Atlas connection string
 client = MongoClient("mongodb+srv://test:test@cluster0.qdyup.mongodb.net/")
@@ -31,6 +31,7 @@ def fetch_changes():
     return pd.DataFrame(list(changes_collection.find({}, {'_id': 0})))  # Excludes the MongoDB '_id' from the DataFrame
 
 # Streamlit app layout
+st.set_page_config(layout="wide")
 st.title("Item Change Tracker")
 cols1 = st.columns((1,1))
 item_numbers_input = cols1[0].text_area("Enter Item Numbers (space, comma, or newline separated)", height=300)
