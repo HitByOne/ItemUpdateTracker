@@ -3,6 +3,8 @@ import pandas as pd
 from datetime import datetime
 import re
 from pymongo import MongoClient
+# Automatically open in wide mode
+st.set_page_config(layout="wide")
 
 # MongoDB Atlas connection string
 client = MongoClient("mongodb+srv://test:test@cluster0.qdyup.mongodb.net/")
